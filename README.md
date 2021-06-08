@@ -356,6 +356,7 @@ For a full example of a login page's template see [source code](internal/web/tem
             image: icoreru/werther:v1.1.1
             environment:
                 WERTHER_IDENTP_HYDRA_URL: http://hydra:4445
+                WERTHER_IDENTP_EXTEND_ACCESS_TOKEN: "false"
                 WERTHER_LDAP_ENDPOINTS: ldap:389
                 WERTHER_LDAP_BINDDN: cn=admin,dc=example,dc=com
                 WERTHER_LDAP_BINDPW: password
