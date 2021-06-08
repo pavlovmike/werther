@@ -55,7 +55,7 @@ func TestInitiateConsentRequest(t *testing.T) {
 			h := &testInitiateConsentHandler{reqInfo: tc.reqInfo, status: tc.status}
 			srv := httptest.NewServer(h)
 			defer srv.Close()
-			ldr := hydra.NewConsentReqDoer(srv.URL, tc.rememberFor)
+			ldr := hydra.NewConsentReqDoer(srv.URL, tc.rememberFor, false)
 
 			reqInfo, err := ldr.InitiateRequest(tc.challenge)
 
@@ -109,15 +109,17 @@ func (h *testInitiateConsentHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 
 func TestAcceptConsentRequest(t *testing.T) {
 	testCases := []struct {
-		name        string
-		challenge   string
-		rememberFor int
-		remember    bool
-		grantScope  []interface{}
-		idToken     string
-		status      int
-		redirect    string
-		wantErr     error
+		name              string
+		challenge         string
+		rememberFor       int
+		remember          bool
+		grantScope        []interface{}
+		idToken           string
+		status            int
+		redirect          string
+		wantErr           error
+		accessToken       string
+		extendAccessToken bool
 	}{
 		{
 			name:    "challenge is missed",
@@ -143,13 +145,25 @@ func TestAcceptConsentRequest(t *testing.T) {
 			status:      http.StatusOK,
 			redirect:    "/test-redirect",
 		},
+		{
+			name:              "use access token",
+			challenge:         "foo",
+			extendAccessToken: true,
+			rememberFor:       10,
+			remember:          true,
+			grantScope:        []interface{}{"scope1", "scope2"},
+			idToken:           "testToken",
+			accessToken:       "testToken",
+			status:            http.StatusOK,
+			redirect:          "/test-redirect",
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			h := &testAcceptConsentHandler{challenge: tc.challenge, status: tc.status, redirect: tc.redirect}
 			srv := httptest.NewServer(h)
 			defer srv.Close()
-			ldr := hydra.NewConsentReqDoer(srv.URL, tc.rememberFor)
+			ldr := hydra.NewConsentReqDoer(srv.URL, tc.rememberFor, tc.extendAccessToken)
 
 			var grantScope []string
 			for _, v := range tc.grantScope {
@@ -179,7 +193,11 @@ func TestAcceptConsentRequest(t *testing.T) {
 				"grant_scope":  tc.grantScope,
 				"remember":     tc.remember,
 				"remember_for": tc.rememberFor,
-				"session":      map[string]interface{}{"id_token": tc.idToken},
+			}
+			if tc.accessToken != "" {
+				wantData["session"] = map[string]interface{}{"access_token": tc.accessToken, "id_token": tc.idToken}
+			} else {
+				wantData["session"] = map[string]interface{}{"id_token": tc.idToken}
 			}
 			if !reflect.DeepEqual(h.data, wantData) {
 				t.Errorf("\ngot request data:\n\t%#v\nwant request data:\n\t%#v", h.data, wantData)

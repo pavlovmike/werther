@@ -27,9 +27,10 @@ const loginTmplName = "login.tmpl"
 
 // Config is a Hydra configuration.
 type Config struct {
-	HydraURL    string            `envconfig:"hydra_url" required:"true" desc:"an admin URL of ORY Hydra Server"`
-	SessionTTL  time.Duration     `envconfig:"session_ttl" default:"24h" desc:"a user session's TTL"`
-	ClaimScopes map[string]string `envconfig:"claim_scopes" default:"name:profile,family_name:profile,given_name:profile,email:email,https%3A%2F%2Fgithub.com%2Fi-core%2Fwerther%2Fclaims%2Froles:roles" desc:"a mapping of OpenID Connect claims to scopes (all claims are URL encoded)"`
+	HydraURL          string            `envconfig:"hydra_url" required:"true" desc:"an admin URL of ORY Hydra Server"`
+	SessionTTL        time.Duration     `envconfig:"session_ttl" default:"24h" desc:"a user session's TTL"`
+	ClaimScopes       map[string]string `envconfig:"claim_scopes" default:"name:profile,family_name:profile,given_name:profile,email:email,https%3A%2F%2Fgithub.com%2Fi-core%2Fwerther%2Fclaims%2Froles:roles" desc:"a mapping of OpenID Connect claims to scopes (all claims are URL encoded)"`
+	ExtendAccessToken bool              `envconfig:"extend_access_token" default:"false" desc:"propagate LDAP info to access_token"`
 }
 
 // UserManager is an interface that is used for authentication and providing user's claims.
@@ -85,7 +86,8 @@ func (h *Handler) AddRoutes(apply func(m, p string, h http.Handler, mws ...func(
 	sessionTTL := int(h.SessionTTL.Seconds())
 	apply(http.MethodGet, "/login", newLoginStartHandler(hydra.NewLoginReqDoer(h.HydraURL, 0), h.tr))
 	apply(http.MethodPost, "/login", newLoginEndHandler(hydra.NewLoginReqDoer(h.HydraURL, sessionTTL), h.um, h.tr))
-	apply(http.MethodGet, "/consent", newConsentHandler(hydra.NewConsentReqDoer(h.HydraURL, sessionTTL), h.um, h.ClaimScopes))
+	apply(http.MethodGet, "/consent", newConsentHandler(hydra.NewConsentReqDoer(h.HydraURL, sessionTTL,
+		h.ExtendAccessToken), h.um, h.ClaimScopes))
 	apply(http.MethodGet, "/logout", newLogoutHandler(hydra.NewLogoutReqDoer(h.HydraURL)))
 }
 

@@ -13,13 +13,18 @@ import (
 
 // ConsentReqDoer fetches information on the OAuth2 request and then accept or reject the requested authentication process.
 type ConsentReqDoer struct {
-	hydraURL    string
-	rememberFor int
+	hydraURL                string
+	rememberFor             int
+	extendAccessTokenClaims bool
 }
 
 // NewConsentReqDoer creates a ConsentRequest.
-func NewConsentReqDoer(hydraURL string, rememberFor int) *ConsentReqDoer {
-	return &ConsentReqDoer{hydraURL: hydraURL, rememberFor: rememberFor}
+func NewConsentReqDoer(hydraURL string, rememberFor int, extendAccessTokenClaims bool) *ConsentReqDoer {
+	return &ConsentReqDoer{
+		hydraURL:                hydraURL,
+		rememberFor:             rememberFor,
+		extendAccessTokenClaims: extendAccessTokenClaims,
+	}
 }
 
 // InitiateRequest fetches information on the OAuth2 request.
@@ -29,9 +34,11 @@ func (crd *ConsentReqDoer) InitiateRequest(challenge string) (*ReqInfo, error) {
 }
 
 // AcceptConsentRequest accepts the requested authentication process, and returns redirect URI.
-func (crd *ConsentReqDoer) AcceptConsentRequest(challenge string, remember bool, grantScope []string, idToken interface{}) (string, error) {
+func (crd *ConsentReqDoer) AcceptConsentRequest(challenge string, remember bool, grantScope []string, claims interface{},
+) (string, error) {
 	type session struct {
-		IDToken interface{} `json:"id_token,omitempty"`
+		AccessToken interface{} `json:"access_token,omitempty"`
+		IDToken     interface{} `json:"id_token,omitempty"`
 	}
 	data := struct {
 		GrantScope  []string `json:"grant_scope"`
@@ -43,8 +50,11 @@ func (crd *ConsentReqDoer) AcceptConsentRequest(challenge string, remember bool,
 		Remember:    remember,
 		RememberFor: crd.rememberFor,
 		Session: session{
-			IDToken: idToken,
+			IDToken: claims,
 		},
+	}
+	if crd.extendAccessTokenClaims {
+		data.Session.AccessToken = claims
 	}
 	redirectURI, err := acceptRequest(consent, crd.hydraURL, challenge, data)
 	return redirectURI, errors.Wrap(err, "failed to accept consent request")
